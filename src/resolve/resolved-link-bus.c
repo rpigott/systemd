@@ -219,8 +219,9 @@ static int verify_unmanaged_link(Link *l, sd_bus_error *error) {
 }
 
 static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
-        _cleanup_free_ char *j = NULL;
+        _cleanup_free_ char *j = NULL, *origin = NULL;
         struct in_addr_full **dns;
+        const char *sender;
         bool changed = false;
         Link *l = ASSERT_PTR(userdata);
         size_t n;
@@ -265,6 +266,12 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
 
         bus_client_log(message, "DNS server change");
 
+        sender = sd_bus_message_get_sender(message);
+        if (sender)
+                asprintf(&origin, "Bus client: %s", sender);
+        else
+                origin = strdup("Bus client");
+
         dns_server_mark_all(l->dns_servers);
 
         for (size_t i = 0; i < n; i++) {
@@ -295,9 +302,9 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                 (void) manager_send_changed(l->manager, "DNS");
 
                 if (j)
-                        log_link_info(l, "Bus client set DNS server list to: %s", j);
+                        log_link_info(l, "%s set DNS server list to: %s", origin, j);
                 else
-                        log_link_info(l, "Bus client reset DNS server list.");
+                        log_link_info(l, "%s reset DNS server list.", origin);
         }
 
         r = sd_bus_reply_method_return(message, NULL);
@@ -319,8 +326,9 @@ int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, 
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ char *j = NULL;
+        _cleanup_free_ char *j = NULL, *origin = NULL;
         Link *l = ASSERT_PTR(userdata);
+        const char *sender;
         bool changed = false;
         int r;
 
@@ -382,6 +390,13 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
 
         bus_client_log(message, "dns domains change");
 
+        sender = sd_bus_message_get_sender(message);
+        if (sender)
+                asprintf(&origin, "Bus client: %s", sender);
+        else
+                origin = strdup("Bus client");
+
+
         dns_search_domain_mark_all(l->search_domains);
 
         for (;;) {
@@ -423,9 +438,9 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                 (void) manager_write_resolv_conf(l->manager);
 
                 if (j)
-                        log_link_info(l, "Bus client set search domain list to: %s", j);
+                        log_link_info(l, "%s set search domain list to: %s", origin, j);
                 else
-                        log_link_info(l, "Bus client reset search domain list.");
+                        log_link_info(l, "%s reset search domain list.", origin);
         }
 
         return sd_bus_reply_method_return(message, NULL);
@@ -437,6 +452,8 @@ clear:
 
 int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Link *l = ASSERT_PTR(userdata);
+        _cleanup_free_ char *origin = NULL;
+        const char *sender;
         int r, b;
 
         assert(message);
@@ -462,13 +479,19 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
 
         bus_client_log(message, "dns default route change");
 
+        sender = sd_bus_message_get_sender(message);
+        if (sender)
+                asprintf(&origin, "Bus client: %s", sender);
+        else
+                origin = strdup("Bus client");
+
         if (l->default_route != b) {
                 l->default_route = b;
 
                 (void) link_save_user(l);
                 (void) manager_write_resolv_conf(l->manager);
 
-                log_link_info(l, "Bus client set default route setting: %s", yes_no(b));
+                log_link_info(l, "%s set default route setting: %s", origin, yes_no(b));
         }
 
         return sd_bus_reply_method_return(message, NULL);
