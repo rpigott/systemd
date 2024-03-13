@@ -138,7 +138,7 @@ int manager_read_resolv_conf(Manager *m) {
 
                 a = first_word(line, "nameserver");
                 if (a) {
-                        r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_SYSTEM, a);
+                        r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_SYSTEM, a, "Foreign");
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse DNS server address '%s', ignoring.", a);
 

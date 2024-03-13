@@ -23,7 +23,7 @@
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode, "Failed to parse DNS stub listener mode setting");
 
-static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
+static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word, const char *origin) {
         _cleanup_free_ char *server_name = NULL;
         union in_addr_union address;
         int family, r, ifindex = 0;
@@ -55,10 +55,11 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
                 return 0;
         }
 
-        return dns_server_new(m, NULL, type, NULL, family, &address, port, ifindex, server_name);
+        return dns_server_new(m, NULL, type, NULL, family, &address, port, ifindex, server_name, origin);
 }
 
-int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string) {
+int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string, const char
+                *origin) {
         int r;
 
         assert(m);
@@ -71,7 +72,7 @@ int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, con
                 if (r <= 0)
                         return r;
 
-                r = manager_add_dns_server_by_string(m, type, word);
+                r = manager_add_dns_server_by_string(m, type, word, origin);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add DNS server address '%s', ignoring: %m", word);
         }
@@ -152,7 +153,7 @@ int config_parse_dns_servers(
                 dns_server_unlink_all(manager_get_first_dns_server(m, ltype));
         else {
                 /* Otherwise, add to the list */
-                r = manager_parse_dns_server_string_and_warn(m, ltype, rvalue);
+                r = manager_parse_dns_server_string_and_warn(m, ltype, rvalue, filename);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse DNS server string '%s', ignoring.", rvalue);
@@ -482,7 +483,7 @@ static void read_credentials(Manager *m) {
                 log_warning_errno(r, "Failed to read credentials, ignoring: %m");
 
         if (dns) {
-                r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_SYSTEM, dns);
+                r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_SYSTEM, dns, "Host credential");
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse credential network.dns '%s', ignoring.", dns);
 
@@ -529,7 +530,7 @@ static int proc_cmdline_callback(const char *key, const char *value, void *data)
                         info->dns_server_unlinked = true;
                 }
 
-                r = manager_parse_dns_server_string_and_warn(info->manager, DNS_SERVER_SYSTEM, value);
+                r = manager_parse_dns_server_string_and_warn(info->manager, DNS_SERVER_SYSTEM, value, "Kernel cmdline");
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse DNS server string '%s', ignoring.", value);
 
@@ -583,7 +584,7 @@ int manager_parse_config_file(Manager *m) {
         read_proc_cmdline(m);  /* … but kernel command line overrides local configuration. */
 
         if (m->need_builtin_fallbacks) {
-                r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_FALLBACK, DNS_SERVERS);
+                r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_FALLBACK, DNS_SERVERS, "Builtin");
                 if (r < 0)
                         return r;
         }

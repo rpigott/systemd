@@ -28,9 +28,10 @@ int dns_server_new(
                 const union in_addr_union *in_addr,
                 uint16_t port,
                 int ifindex,
-                const char *server_name) {
+                const char *server_name,
+                const char *server_origin) {
 
-        _cleanup_free_ char *name = NULL;
+        _cleanup_free_ char *name = NULL, *origin = NULL;
         DnsServer *s;
 
         assert(m);
@@ -54,6 +55,12 @@ int dns_server_new(
                         return -ENOMEM;
         }
 
+        if (!isempty(server_origin)) {
+                origin = strdup(server_origin);
+                if (!origin)
+                        return -ENOMEM;
+        }
+
         s = new(DnsServer, 1);
         if (!s)
                 return -ENOMEM;
@@ -67,6 +74,7 @@ int dns_server_new(
                 .port = port,
                 .ifindex = ifindex,
                 .server_name = TAKE_PTR(name),
+                .server_origin = TAKE_PTR(origin),
         };
 
         dns_server_reset_features(s);
@@ -1105,6 +1113,7 @@ int dns_server_dump_state_to_json(DnsServer *server, JsonVariant **ret) {
                           JSON_BUILD_OBJECT(
                                         JSON_BUILD_PAIR_STRING("Server", strna(dns_server_string_full(server))),
                                         JSON_BUILD_PAIR_STRING("Type", strna(dns_server_type_to_string(server->type))),
+                                        JSON_BUILD_PAIR_STRING("Origin", server->server_origin),
                                         JSON_BUILD_PAIR_CONDITION(server->type == DNS_SERVER_LINK, "Interface", JSON_BUILD_STRING(server->link ? server->link->ifname : NULL)),
                                         JSON_BUILD_PAIR_CONDITION(server->type == DNS_SERVER_LINK, "InterfaceIndex", JSON_BUILD_UNSIGNED(server->link ? server->link->ifindex : 0)),
                                         JSON_BUILD_PAIR_STRING("VerifiedFeatureLevel", strna(dns_server_feature_level_to_string(server->verified_feature_level))),

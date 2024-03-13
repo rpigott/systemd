@@ -24,6 +24,12 @@ typedef enum DnsServerType {
         _DNS_SERVER_TYPE_INVALID = -EINVAL,
 } DnsServerType;
 
+/* typedef enum DnsServerOrigin { */
+/*         DNS_SERVER_ORIGIN_CONFIG,   /1* Configured in resolved's own static configuration files *1/ */
+/*         DNS_SERVER_ORIGIN_EXTERNAL, /1* Configured at runtime by a bus/varlink client *1/ */
+/*         DNS_SERVER_ORIGIN_NETWORK,  /1* Configured at runtime the network via DHCP v4/v6 or RA *1/ */
+/* } DnsServerOrigin; */
+
 const char* dns_server_type_to_string(DnsServerType i) _const_;
 DnsServerType dns_server_type_from_string(const char *s) _pure_;
 
@@ -64,6 +70,9 @@ struct DnsServer {
 
         char *server_string;
         char *server_string_full;
+
+        /* Free-form string describing the server origin, i.e. why are we using this server? */
+        char *server_origin;
 
         /* The long-lived stream towards this server. */
         DnsStream *stream;
@@ -111,7 +120,8 @@ int dns_server_new(
                 const union in_addr_union *address,
                 uint16_t port,
                 int ifindex,
-                const char *server_string);
+                const char *server_string,
+                const char *server_origin);
 
 DnsServer* dns_server_ref(DnsServer *s);
 DnsServer* dns_server_unref(DnsServer *s);
