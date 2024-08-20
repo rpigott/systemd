@@ -718,8 +718,10 @@ DnsScopeMatch dns_scope_good_domain(
                 }
 
                 /* Never route things to scopes that lack DNS servers */
-                if (!dns_scope_get_dns_server(s))
+                if (!dns_scope_get_dns_server(s)) {
+                        log_info("no dns servers on %s\n", s->link ? s->link->ifname : "manager");
                         return DNS_SCOPE_NO;
+                }
 
                 /* Always honour search domains for routing queries, except if this scope lacks DNS servers. Note that
                  * we return DNS_SCOPE_YES here, rather than just DNS_SCOPE_MAYBE, which means other wildcard scopes
@@ -779,7 +781,10 @@ DnsScopeMatch dns_scope_good_domain(
                         return DNS_SCOPE_NO;
 
                 /* Prefer suitable per-link scopes where possible */
-                return s->link ? DNS_SCOPE_MAYBE : DNS_SCOPE_LAST_RESORT;
+                if (!s->link && s->manager->current_dns_server->type == DNS_SERVER_FALLBACK)
+                        return DNS_SCOPE_LAST_RESORT;
+
+                return DNS_SCOPE_MAYBE;
         }
 
         case DNS_PROTOCOL_MDNS: {
